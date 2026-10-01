@@ -3,17 +3,49 @@ import os
 
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import CommandStart
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import (
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+    WebAppInfo,
+)
 from dotenv import load_dotenv
+
+
+# =========================
+# НАСТРОЙКИ
+# =========================
 
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+
 CHANNEL_USERNAME = "@vukoul"
+
+# Ссылка на нашу Telegram Mini App
+WEB_APP_URL = "https://assagyyscp-cyber.github.io/music---bot/"
+
+
+# =========================
+# ПРОВЕРКА ТОКЕНА
+# =========================
+
+if not BOT_TOKEN:
+    raise ValueError(
+        "BOT_TOKEN не найден. Добавь BOT_TOKEN в Variables на Railway."
+    )
+
+
+# =========================
+# BOT / DISPATCHER
+# =========================
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
+
+# =========================
+# КЛАВИАТУРА ПОДПИСКИ
+# =========================
 
 def subscription_keyboard():
     return InlineKeyboardMarkup(
@@ -34,18 +66,28 @@ def subscription_keyboard():
     )
 
 
+# =========================
+# КЛАВИАТУРА MUSIC
+# =========================
+
 def music_keyboard():
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
                     text="🎧 Открыть MUSIC",
-                    callback_data="open_music"
+                    web_app=WebAppInfo(
+                        url=WEB_APP_URL
+                    )
                 )
             ]
         ]
     )
 
+
+# =========================
+# ПРОВЕРКА ПОДПИСКИ
+# =========================
 
 async def check_subscription(user_id: int) -> bool:
     try:
@@ -61,23 +103,34 @@ async def check_subscription(user_id: int) -> bool:
         }
 
     except Exception as e:
-        print("Ошибка проверки:", e)
+        print("Ошибка проверки подписки:", e)
         return False
 
 
+# =========================
+# /START
+# =========================
+
 @dp.message(CommandStart())
 async def start(message: types.Message):
-    if not await check_subscription(message.from_user.id):
+
+    user_id = message.from_user.id
+
+    # Проверяем подписку
+    if not await check_subscription(user_id):
+
         await message.answer(
             "🎵 <b>MUSIC</b>\n\n"
             "Добро пожаловать!\n\n"
-            "Чтобы пользоваться ботом, "
+            "Чтобы пользоваться MUSIC, "
             "сначала подпишитесь на наш канал 👇",
             reply_markup=subscription_keyboard(),
             parse_mode="HTML"
         )
+
         return
 
+    # Если подписан
     await message.answer(
         "🎵 <b>MUSIC</b>\n\n"
         "✅ Подписка подтверждена!\n\n"
@@ -87,21 +140,34 @@ async def start(message: types.Message):
     )
 
 
-@dp.callback_query(lambda c: c.data == "check_subscription")
+# =========================
+# КНОПКА «Я ПОДПИСАЛСЯ»
+# =========================
+
+@dp.callback_query(
+    lambda callback: callback.data == "check_subscription"
+)
 async def check_subscription_button(
     callback: types.CallbackQuery
 ):
-    if not await check_subscription(callback.from_user.id):
+
+    user_id = callback.from_user.id
+
+    # Проверяем подписку заново
+    if not await check_subscription(user_id):
+
         await callback.answer(
-            "❌ Вы ещё не подписались",
+            "❌ Вы ещё не подписались на канал",
             show_alert=True
         )
+
         return
 
+    # Подписка подтверждена
     await callback.message.edit_text(
         "🎵 <b>MUSIC</b>\n\n"
         "✅ Подписка подтверждена!\n\n"
-        "Добро пожаловать в MUSIC 🎧",
+        "Теперь можно открыть музыкальное приложение 🎧",
         reply_markup=music_keyboard(),
         parse_mode="HTML"
     )
@@ -109,15 +175,14 @@ async def check_subscription_button(
     await callback.answer("✅ Готово!")
 
 
-@dp.callback_query(lambda c: c.data == "open_music")
-async def open_music(callback: types.CallbackQuery):
-    await callback.answer(
-        "🎧 Скоро здесь будет MUSIC!"
-    )
-
+# =========================
+# ЗАПУСК
+# =========================
 
 async def main():
+
     print("🎵 MUSIC BOT запущен")
+
     await dp.start_polling(bot)
 
 
